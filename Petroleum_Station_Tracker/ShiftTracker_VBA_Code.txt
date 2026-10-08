@@ -1,0 +1,183 @@
+'==================================================================
+' GASO PETROLEUM SHIFT TRACKER — VBA MODULE
+'
+' SETUP:
+'   1. Open Gaso_Shift_Tracker.xlsx in Excel.
+'   2. File > Save As > choose "Excel Macro-Enabled Workbook (*.xlsm)".
+'   3. Press Alt+F11 to open the VBA editor.
+'   4. Right-click "VBAProject (Gaso_Shift_Tracker.xlsm)" > Insert > Module.
+'   5. Paste ALL the code below into that module.
+'   6. Close the VBA editor and save (Ctrl+S).
+'   7. On each Entry sheet, go to Developer tab > Insert > Button (Form
+'      Control), draw it directly over the red "SAVE ENTRY" cell, and
+'      when prompted "Assign Macro", choose the matching macro name:
+'         Entry_FuelSales     -> SaveFuelSales
+'         Entry_CashBanking   -> SaveCashBanking
+'         Entry_Expenses      -> SaveExpense
+'      (If the Developer tab isn't visible: File > Options > Customize
+'      Ribbon > tick "Developer".)
+'   8. Right-click the new button > Edit Text > delete the default label
+'      (the red cell text shows through underneath) or just retype "SAVE ENTRY".
+'==================================================================
+
+Option Explicit
+
+'------------------------------------------------------------------
+' Utility: returns the next ShiftID for a given database sheet
+'------------------------------------------------------------------
+Function NextID(ws As Worksheet) As Long
+    Dim lastRow As Long
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    If lastRow < 2 Or ws.Cells(2, 1).Value = "" Then
+        NextID = 1
+    Else
+        NextID = Application.WorksheetFunction.Max(ws.Range("A2:A" & lastRow)) + 1
+    End If
+End Function
+
+'------------------------------------------------------------------
+' Utility: first truly empty row on a database sheet (checks col A)
+'------------------------------------------------------------------
+Function NextEmptyRow(ws As Worksheet) As Long
+    Dim r As Long
+    r = 2
+    Do While ws.Cells(r, 1).Value <> "" Or ws.Cells(r, 2).Value <> ""
+        r = r + 1
+    Loop
+    NextEmptyRow = r
+End Function
+
+'------------------------------------------------------------------
+' 1. FUEL SALES
+'------------------------------------------------------------------
+Sub SaveFuelSales()
+    Dim wsEntry As Worksheet, wsDB As Worksheet
+    Set wsEntry = ThisWorkbook.Sheets("Entry_FuelSales")
+    Set wsDB = ThisWorkbook.Sheets("DB_FuelSales")
+
+    ' --- basic validation ---
+    If Trim(wsEntry.Range("C4").Value) = "" Or _
+       Trim(wsEntry.Range("C5").Value) = "" Or _
+       Trim(wsEntry.Range("C6").Value) = "" Or _
+       Trim(wsEntry.Range("C7").Value) = "" Then
+        MsgBox "Please fill in Date, Shift-Group, Attendant and Product before saving.", vbExclamation, "Missing information"
+        Exit Sub
+    End If
+
+    Dim r As Long
+    r = NextEmptyRow(wsDB)
+
+    wsDB.Cells(r, 1).Value = NextID(wsDB)                 ' ShiftID
+    wsDB.Cells(r, 2).Value = wsEntry.Range("C4").Value     ' Date
+    wsDB.Cells(r, 2).NumberFormat = "DD/MM/YYYY"
+    wsDB.Cells(r, 3).Value = wsEntry.Range("C5").Value     ' ShiftGroup
+    wsDB.Cells(r, 4).Value = wsEntry.Range("C6").Value     ' Attendant
+    wsDB.Cells(r, 5).Value = wsEntry.Range("C7").Value     ' Product
+    wsDB.Cells(r, 6).Value = wsEntry.Range("C8").Value     ' OpeningStock_L
+    wsDB.Cells(r, 7).Value = wsEntry.Range("C9").Value     ' Deliveries_L
+    wsDB.Cells(r, 8).Value = wsEntry.Range("C10").Value    ' ActualStock_L
+    wsDB.Cells(r, 9).Value = wsEntry.Range("C13").Value    ' ExpectedStock_L
+    wsDB.Cells(r, 10).Value = wsEntry.Range("C14").Value   ' StockVariance_L
+    wsDB.Cells(r, 11).Value = wsEntry.Range("C11").Value   ' LitresSold
+    wsDB.Cells(r, 12).Value = wsEntry.Range("C12").Value   ' UnitPrice_GHS
+    wsDB.Cells(r, 13).Value = wsEntry.Range("C15").Value   ' Revenue_GHS
+    wsDB.Cells(r, 14).Value = Now                          ' EnteredOn
+    wsDB.Cells(r, 14).NumberFormat = "DD/MM/YYYY HH:MM"
+
+    ' extend the Table if needed
+    On Error Resume Next
+    wsDB.ListObjects("DB_FuelSales").Resize wsDB.Range(wsDB.Cells(1, 1), wsDB.Cells(r, 14))
+    On Error GoTo 0
+
+    ' clear the entry form (keep Date so the next entry defaults to same day)
+    wsEntry.Range("C5:C12").ClearContents
+
+    MsgBox "Fuel sales entry saved (Shift ID " & wsDB.Cells(r, 1).Value & ").", vbInformation, "Saved"
+End Sub
+
+'------------------------------------------------------------------
+' 2. CASH & BANKING
+'------------------------------------------------------------------
+Sub SaveCashBanking()
+    Dim wsEntry As Worksheet, wsDB As Worksheet
+    Set wsEntry = ThisWorkbook.Sheets("Entry_CashBanking")
+    Set wsDB = ThisWorkbook.Sheets("DB_CashBanking")
+
+    If Trim(wsEntry.Range("C4").Value) = "" Or Trim(wsEntry.Range("C5").Value) = "" Then
+        MsgBox "Please fill in Date and Shift-Group before saving.", vbExclamation, "Missing information"
+        Exit Sub
+    End If
+
+    Dim r As Long
+    r = NextEmptyRow(wsDB)
+
+    wsDB.Cells(r, 1).Value = NextID(wsDB)
+    wsDB.Cells(r, 2).Value = wsEntry.Range("C4").Value
+    wsDB.Cells(r, 2).NumberFormat = "DD/MM/YYYY"
+    wsDB.Cells(r, 3).Value = wsEntry.Range("C5").Value      ' ShiftGroup
+    wsDB.Cells(r, 4).Value = wsEntry.Range("C6").Value      ' OpeningBalance
+    wsDB.Cells(r, 5).Value = wsEntry.Range("C7").Value      ' CashSales
+    wsDB.Cells(r, 6).Value = wsEntry.Range("C8").Value      ' CreditSales
+    wsDB.Cells(r, 7).Value = wsEntry.Range("C9").Value      ' CreditCustomer
+    wsDB.Cells(r, 8).Value = wsEntry.Range("C10").Value     ' ExpectedBanking
+    wsDB.Cells(r, 9).Value = wsEntry.Range("C11").Value     ' ActualBanked
+    wsDB.Cells(r, 10).Value = wsEntry.Range("C12").Value    ' BankingVariance
+    wsDB.Cells(r, 11).Value = Now
+    wsDB.Cells(r, 11).NumberFormat = "DD/MM/YYYY HH:MM"
+
+    On Error Resume Next
+    wsDB.ListObjects("DB_CashBanking").Resize wsDB.Range(wsDB.Cells(1, 1), wsDB.Cells(r, 11))
+    On Error GoTo 0
+
+    wsEntry.Range("C5:C11").ClearContents
+
+    MsgBox "Cash & banking entry saved (Shift ID " & wsDB.Cells(r, 1).Value & ").", vbInformation, "Saved"
+End Sub
+
+'------------------------------------------------------------------
+' 3. EXPENSES
+'------------------------------------------------------------------
+Sub SaveExpense()
+    Dim wsEntry As Worksheet, wsDB As Worksheet
+    Set wsEntry = ThisWorkbook.Sheets("Entry_Expenses")
+    Set wsDB = ThisWorkbook.Sheets("DB_Expenses")
+
+    If Trim(wsEntry.Range("C4").Value) = "" Or _
+       Trim(wsEntry.Range("C6").Value) = "" Or _
+       Trim(wsEntry.Range("C8").Value) = "" Then
+        MsgBox "Please fill in Date, Expense Category and Amount before saving.", vbExclamation, "Missing information"
+        Exit Sub
+    End If
+
+    Dim r As Long
+    r = NextEmptyRow(wsDB)
+
+    wsDB.Cells(r, 1).Value = NextID(wsDB)
+    wsDB.Cells(r, 2).Value = wsEntry.Range("C4").Value
+    wsDB.Cells(r, 2).NumberFormat = "DD/MM/YYYY"
+    wsDB.Cells(r, 3).Value = wsEntry.Range("C5").Value      ' ShiftGroup
+    wsDB.Cells(r, 4).Value = wsEntry.Range("C6").Value      ' ExpenseCategory
+    wsDB.Cells(r, 5).Value = wsEntry.Range("C7").Value      ' ExpenseOwner
+    wsDB.Cells(r, 6).Value = wsEntry.Range("C8").Value      ' Amount
+    wsDB.Cells(r, 7).Value = wsEntry.Range("C9").Value      ' Notes
+    wsDB.Cells(r, 8).Value = Now
+    wsDB.Cells(r, 8).NumberFormat = "DD/MM/YYYY HH:MM"
+
+    On Error Resume Next
+    wsDB.ListObjects("DB_Expenses").Resize wsDB.Range(wsDB.Cells(1, 1), wsDB.Cells(r, 8))
+    On Error GoTo 0
+
+    wsEntry.Range("C5:C9").ClearContents
+
+    MsgBox "Expense entry saved (Shift ID " & wsDB.Cells(r, 1).Value & ").", vbInformation, "Saved"
+End Sub
+
+'------------------------------------------------------------------
+' OPTIONAL: default today's date whenever workbook opens
+' (paste this one into "ThisWorkbook", NOT the module, if you want it)
+'------------------------------------------------------------------
+'Private Sub Workbook_Open()
+'    Sheets("Entry_FuelSales").Range("C4").Value = Date
+'    Sheets("Entry_CashBanking").Range("C4").Value = Date
+'    Sheets("Entry_Expenses").Range("C4").Value = Date
+'End Sub
